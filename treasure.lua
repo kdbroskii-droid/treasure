@@ -1,5 +1,5 @@
 --[[
-    TREASURE UI LIBRARY
+    TREASURE UI LIBRARY (FIXED DROPDOWN)
     GitHub: https://raw.githubusercontent.com/kdbroskii-droid/treasure/main/treasure.lua
 
     Built for Roblox experiences you control.
@@ -878,20 +878,36 @@ function Treasure:CreateTab(name)
         p.PaddingLeft = UDim.new(0, 12)
         p.Parent = button
 
+        -- Create a container for the dropdown menu that will push content down
+        local menuContainer = Instance.new("Frame")
+        menuContainer.BackgroundTransparency = 1
+        menuContainer.Size = UDim2.new(1, 0, 0, 0)
+        menuContainer.ClipsDescendants = true
+        menuContainer.Parent = holder
+
         local menu = Instance.new("Frame")
-        menu.Visible = false
+        menu.Visible = true
         menu.BackgroundColor3 = Color3.fromRGB(20, 31, 52)
         menu.BorderSizePixel = 0
-        menu.Position = UDim2.new(0, 0, 1, 5)
-        menu.Size = UDim2.new(1, 0, 0, math.min(#options * 31, 155))
+        menu.Size = UDim2.new(1, 0, 0, 0)
         menu.ZIndex = 20
-        menu.Parent = holder
+        menu.Parent = menuContainer
         round(menu, 8)
         stroke(menu, self.Library.Settings.Accent, 0.7, 1)
 
         local list = Instance.new("UIListLayout")
         list.Padding = UDim.new(0, 3)
         list.Parent = menu
+
+        -- Store reference to the dropdown elements
+        local dropdownData = {
+            button = button,
+            menu = menu,
+            menuContainer = menuContainer,
+            options = options,
+            current = current,
+            isOpen = false
+        }
 
         local function rebuild()
             for _, child in ipairs(menu:GetChildren()) do
@@ -909,28 +925,67 @@ function Treasure:CreateTab(name)
                 item.MouseButton1Click:Connect(function()
                     current = option
                     button.Text = tostring(option)
-                    menu.Visible = false
+                    -- Close dropdown when an option is selected
+                    setDropdownOpen(false, true)
                     if cfg.Callback then
                         task.spawn(cfg.Callback, option)
                     end
                 end)
             end
+
+            -- Update menu height based on number of options
+            local optionCount = #options
+            local menuHeight = math.min(optionCount * 31, 155)
+            menu.Size = UDim2.new(1, 0, 0, menuHeight)
+            
+            -- Update container size to match menu
+            menuContainer.Size = UDim2.new(1, 0, 0, menuHeight)
+            
+            -- Update holder size to accommodate the menu
+            holder.Size = UDim2.new(1, 0, 0, 38 + menuHeight + 5)
+        end
+
+        local function setDropdownOpen(open, animate)
+            dropdownData.isOpen = open
+            
+            local targetHeight = open and (math.min(#options * 31, 155)) or 0
+            
+            if animate and self.Library.Settings.Animations then
+                -- Animate the container height
+                tween(menuContainer,
+                    TweenInfo.new(0.2 / self.Library.Settings.AnimationSpeed, Enum.EasingStyle.Back),
+                    {Size = UDim2.new(1, 0, 0, targetHeight)}
+                )
+                -- Animate the menu height too
+                tween(menu,
+                    TweenInfo.new(0.2 / self.Library.Settings.AnimationSpeed, Enum.EasingStyle.Back),
+                    {Size = UDim2.new(1, 0, 0, targetHeight)}
+                )
+                
+                -- Animate the holder to accommodate the menu
+                local holderTargetHeight = 38 + targetHeight + 5
+                tween(holder,
+                    TweenInfo.new(0.2 / self.Library.Settings.AnimationSpeed, Enum.EasingStyle.Back),
+                    {Size = UDim2.new(1, 0, 0, holderTargetHeight)}
+                )
+            else
+                menuContainer.Size = UDim2.new(1, 0, 0, targetHeight)
+                menu.Size = UDim2.new(1, 0, 0, targetHeight)
+                local holderTargetHeight = 38 + targetHeight + 5
+                holder.Size = UDim2.new(1, 0, 0, holderTargetHeight)
+            end
         end
 
         button.MouseButton1Click:Connect(function()
             self.Library._pressEffect(button)
-            menu.Visible = not menu.Visible
-
-            if menu.Visible and self.Library.Settings.Animations then
-                menu.Size = UDim2.new(1, 0, 0, 0)
-                tween(menu,
-                    TweenInfo.new(0.16 / self.Library.Settings.AnimationSpeed, Enum.EasingStyle.Back),
-                    {Size = UDim2.new(1, 0, 0, math.min(#options * 31, 155))}
-                )
-            end
+            setDropdownOpen(not dropdownData.isOpen, true)
         end)
 
+        -- Initial rebuild and setup
         rebuild()
+        
+        -- Set initial state (closed)
+        setDropdownOpen(false, false)
 
         local control = {
             Type = "Dropdown",
@@ -946,6 +1001,8 @@ function Treasure:CreateTab(name)
                         if cfg.Callback then
                             task.spawn(cfg.Callback, v)
                         end
+                        -- Close dropdown when setting programmatically
+                        setDropdownOpen(false, true)
                         break
                     end
                 end
@@ -1146,6 +1203,12 @@ function Treasure:CreateTab(name)
         button.MouseButton1Click:Connect(function()
             self.Library._pressEffect(button)
             editor.Visible = not editor.Visible
+            -- Adjust holder size to accommodate editor
+            if editor.Visible then
+                holder.Size = UDim2.new(1, 0, 0, 38 + 94 + 5)
+            else
+                holder.Size = UDim2.new(1, 0, 0, 38)
+            end
         end)
 
         local control = {
